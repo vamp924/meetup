@@ -262,7 +262,7 @@ objects:
         app: ${BACKEND_SVC_NAME}
       name: ${BACKEND_SVC_NAME}
     spec:
-      replicas: 1
+      replicas: 6
       revisionHistoryLimit: 10
       selector:
         deploymentconfig: backend
@@ -312,6 +312,26 @@ objects:
                   key: PORT
                   name: ${DATABASE_SVC_NAME}-db-auth
             imagePullPolicy: Always
+            livenessProbe:
+              failureThreshold: 2
+              httpGet:
+                path: /health/liveness
+                port: 8080
+                scheme: HTTP
+              initialDelaySeconds: 20
+              periodSeconds: 5
+              successThreshold: 1
+              timeoutSeconds: 1
+            readinessProbe:
+              failureThreshold: 2
+              httpGet:
+                path: /health/readiness
+                port: 8080
+                scheme: HTTP
+              initialDelaySeconds: 20
+              periodSeconds: 1
+              successThreshold: 1
+              timeoutSeconds: 1
             name: ${BACKEND_SVC_NAME}
             ports:
             - containerPort: ${{BACKEND_PORT}}
