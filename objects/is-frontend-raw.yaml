@@ -1,0 +1,45 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/generated-by: OpenShiftNewApp
+  creationTimestamp: "2021-03-15T06:29:47Z"
+  generation: 1
+  labels:
+    app: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/instance: frontend
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/generated-by: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+    manager: oc
+    operation: Update
+    time: "2021-03-15T06:29:47Z"
+  name: frontend
+  namespace: meetup
+  resourceVersion: "13355008"
+  selfLink: /apis/image.openshift.io/v1/namespaces/meetup/imagestreams/frontend
+  uid: 604f8f08-252f-41fa-9ccb-ba7d8a5d5451
+spec:
+  lookupPolicy:
+    local: false
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/meetup/frontend
+  publicDockerImageRepository: registry.apps.ocp4.br77.ru/meetup/frontend
+  tags:
+  - items:
+    - created: "2021-03-15T06:30:31Z"
+      dockerImageReference: image-registry.openshift-image-registry.svc:5000/meetup/frontend@sha256:8a04ec79d3cd5a315e99b7af2074e2a362a329a7ec5a03607e5eb76bae5bdb68
+      generation: 1
+      image: sha256:8a04ec79d3cd5a315e99b7af2074e2a362a329a7ec5a03607e5eb76bae5bdb68
+    tag: latest

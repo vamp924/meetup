@@ -1,0 +1,91 @@
+1. Деплой из образа. mariadb
+cd database
+cat deploy.sh
+./deploy.sh
+copypaste secret creation
+
+2. Деплой из исходников. java backend
+cd ../backend
+cat deploy.sh
+./deploy.sh
+
+3. Деплой из докерфайла. NGINX frontend
+cd ../frontend/green
+cat deploy.sh
+./deploy.sh
+cat add-configmap.sh
+./add-configmap.sh
+oc expose svc frontend
+
+4. Привинчиваем health и readiness чеки вручную к backend
+cd ../../backend
+cat add_health_checks.sh
+./add_health_checks.sh
+
+5. Ломаем чеки, смотрим, что произойдет
+8. Scale бекенда до шести экземпляров
+oc get pods
+oc rsh podname
+curl -XPOST http://localhost/kill
+oc rsh podname
+curl -XPOST http://localhost/pause
+curl -XPOST http://localhost/unpause
+
+6. Обзор созданных объектов
+oc get secret,cm,is,bc,dc,svc,route -l app
+
+7. Cоздание template
+  7.1 Экспорт объектов
+cd ../objects
+oc get secret database-db-auth -o yaml > secret-database-raw.yaml
+
+  7.2 Очистка рантайма из объектов
+cp secret-database-raw.yaml secret-database-clean1.yaml
+joe secret-database-clean1.yaml
+
+  7.3 Заголовок темплейта
+cat template-stub.yaml
+
+  7.4 Компоновка очищенных объектов в темплейт
+cp template-stub.yaml template.yaml
+cat secret-database-clean.yaml >> template.yaml
+# поправить иерархию ямла
+joe template.yaml
+
+  7.5 Параметризация секрета db-secret
+less database-parameters.yaml
+cat database-parameters.yaml >> template-project.yaml
+joe template-project.yaml
+
+  7.6 Просмотр финального template
+less template-final.yaml
+oc process -f template-final.yaml
+
+  7.5 Помещение темплейта в openshift catalog
+oc create -f template-final.yaml -n openshift
+
+  7.6 Развертывание темплейта в новом namespace
+oc delete all,cm,secret --all
+oc process -f template-final.yaml --parameters
+oc process -f template-final.yaml | oc create -f -
+#пока идут билды, показываем интерфейс, темплейт в интерфейсе, его параметры
+
+8. Описываем rolling strategy, изменяем backend, коммит, пуш, start-build
+oc get dc backend -o yaml | less
+#source code manipulation
+oc start-build bc/backend
+# показываем, как заменяются поды, демонстрируем новизну версии 
+
+11. Выкатываем еще один деплой frontend типа другой версии
+cd ../frontend/blue
+cat deploy-blue.sh
+joe nginx.conf
+./deploy-blue.sh
+
+12. Модифицируем роут, чтобы 20% реквестов обслуживал новый фронт
+cd ..
+cat route-balancing.sh
+#эксперименты с роут балансингом, вывод на 100% blue
+oc scale --replicas=0 dc/frontend
+
+13. Вишенка на торте - красивый деплой в 4 окружения jenkinspipeline, c полосочками и перделками в интерфейсе

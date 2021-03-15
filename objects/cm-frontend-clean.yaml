@@ -1,0 +1,72 @@
+apiVersion: v1
+data:
+  nginx.conf: |
+    env BACKEND_HOST;
+    env BACKEND_PORT;
+    env POD_NAMESPACE;
+
+    worker_processes auto;
+    error_log stderr;
+    pid /run/nginx.pid;
+
+    include /usr/share/nginx/modules/*.conf;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        resolver 172.30.0.10;
+
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+
+        sendfile            on;
+        tcp_nopush          on;
+        tcp_nodelay         on;
+        keepalive_timeout   65;
+        types_hash_max_size 2048;
+
+        include             /etc/nginx/mime.types;
+        default_type        application/octet-stream;
+
+        include /etc/nginx/conf.d/*.conf;
+
+        perl_set $backend 'sub { return $ENV{"BACKEND_HOST"}; }';
+        perl_set $backend_port 'sub { return $ENV{"BACKEND_PORT"}; }';
+        perl_set $namespace 'sub { return $ENV{"POD_NAMESPACE"}; }';
+
+
+        server {
+            listen       8080 default_server;
+            listen       [::]:8080 default_server;
+            server_name  _;
+            root         /usr/share/nginx/html;
+
+            include /etc/nginx/default.d/*.conf;
+
+            location / {
+                proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port;
+            }
+            
+            location /color {
+                proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port/echo/green;
+            }
+
+            location /nginx-health {
+                return 200 "healthy\n";
+            }
+
+            location /nginx-ready {
+                return 200 "ready\n";
+            }
+
+        }
+
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app: frontend
+  name: frontend-nginx-config

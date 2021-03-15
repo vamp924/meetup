@@ -1,0 +1,575 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+  app: db-fr-ba
+  template: db-fr-ba
+message: We have deployed!
+metadata:
+  annotations:
+    description: Demo database-frontend-backend template
+    iconClass: icon-php
+    openshift.io/display-name: Database (ephemeral), Backend, Frontend
+    openshift.io/long-description: Demo template with database, frontend, backend
+    tags: database,frontend,backend
+  labels:
+  name: db-fr-ba
+objects:
+  - apiVersion: v1
+    stringData:
+      DATABASE: meetup
+      PASSWORD: mypass
+      USER: meetup
+      HOST: database
+      PORT: 3306
+    kind: Secret
+    metadata:
+      labels:
+        app: database
+      name: database-db-auth
+    type: Opaque
+  - apiVersion: v1
+    data:
+      nginx.conf: |
+        env BACKEND_HOST;
+        env BACKEND_PORT;
+        env POD_NAMESPACE;
+
+        worker_processes auto;
+        error_log stderr;
+        pid /run/nginx.pid;
+
+        include /usr/share/nginx/modules/*.conf;
+
+        events {
+            worker_connections 1024;
+        }
+
+        http {
+            resolver 172.30.0.10;
+
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+
+            sendfile            on;
+            tcp_nopush          on;
+            tcp_nodelay         on;
+            keepalive_timeout   65;
+            types_hash_max_size 2048;
+
+            include             /etc/nginx/mime.types;
+            default_type        application/octet-stream;
+
+            include /etc/nginx/conf.d/*.conf;
+
+            perl_set $backend 'sub { return $ENV{"BACKEND_HOST"}; }';
+            perl_set $backend_port 'sub { return $ENV{"BACKEND_PORT"}; }';
+            perl_set $namespace 'sub { return $ENV{"POD_NAMESPACE"}; }';
+
+
+            server {
+                listen       8080 default_server;
+                listen       [::]:8080 default_server;
+                server_name  _;
+                root         /usr/share/nginx/html;
+
+                include /etc/nginx/default.d/*.conf;
+
+                location / {
+                    proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port;
+                }
+
+                location /color {
+                    proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port/echo/green;
+                }
+
+                location /nginx-health {
+                    return 200 "healthy\n";
+                }
+
+                location /nginx-ready {
+                    return 200 "ready\n";
+                }
+
+            }
+
+        }
+    kind: ConfigMap
+    metadata:
+      labels:
+        app: frontend
+      name: frontend-nginx-config
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: backend
+      name: backend
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: database
+      name: database
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: registry.redhat.io/rhel8/mysql-80
+        generation: 2
+        importPolicy: {}
+        name: latest
+        referencePolicy:
+          type: Source
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: frontend
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: backend
+      name: s2i-java
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: fabric8/s2i-java:latest-java11
+        importPolicy: {}
+        name: latest-java11
+        referencePolicy:
+          type: Source
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: ubi8
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: registry.access.redhat.com/ubi8:8.0
+        importPolicy: {}
+        name: "8.0"
+        referencePolicy:
+          type: Source
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: backend
+      name: backend
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: backend:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: /
+        git:
+          uri: https://github.com/maanur/fictional-garbanzo.git
+        type: Git
+      strategy:
+        sourceStrategy:
+          from:
+            kind: ImageStreamTag
+            name: s2i-java:latest-java11
+        type: Source
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - github:
+          secret: ndAWMm_PSCYpgYzHT8CK
+        type: GitHub
+      - generic:
+          secret: tIzkCPFBfa1XylGHpBR7
+        type: Generic
+      - type: ConfigChange
+      - imageChange:
+        type: ImageChange
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: frontend
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: frontend:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        git:
+          uri: https://github.com/vamp924/frontend
+        type: Git
+      strategy:
+        dockerStrategy:
+          from:
+            kind: ImageStreamTag
+            name: ubi8:8.0
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - github:
+          secret: uU9VpIv29awjXcA2nrwv
+        type: GitHub
+      - generic:
+          secret: zANf0iUx2D52-Q2xYmcq
+        type: Generic
+      - type: ConfigChange
+      - imageChange:
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: backend
+      name: backend
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: backend
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: backend
+        spec:
+          containers:
+          - env:
+            - name: JAVA_APP_JAR
+              value: /deployments/backend-0.1-all.jar
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: PASSWORD
+                  name: database-db-auth
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: USER
+                  name: database-db-auth
+            - name: DATABASE_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE
+                  name: database-db-auth
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: HOST
+                  name: database-db-auth
+            - name: DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: PORT
+                  name: database-db-auth
+            imagePullPolicy: Always
+            name: backend
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+            - containerPort: 8778
+              protocol: TCP
+            - containerPort: 9779
+              protocol: TCP
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - backend
+          from:
+            kind: ImageStreamTag
+            name: backend:latest
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: database
+      name: database
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: database
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: database
+        spec:
+          containers:
+          - env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: PASSWORD
+                  name: database-db-auth
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  key: USER
+                  name: database-db-auth
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE
+                  name: database-db-auth
+            imagePullPolicy: Always
+            name: database
+            ports:
+            - containerPort: 3306
+              protocol: TCP
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - database
+          from:
+            kind: ImageStreamTag
+            name: database:latest
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: frontend
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: frontend
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: frontend
+        spec:
+          containers:
+          - env:
+            - name: BACKEND_HOST
+              value: backend
+            - name: BACKEND_PORT
+              value: "8080"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            imagePullPolicy: Always
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /nginx-health
+                port: 8080
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            name: frontend
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /nginx-ready
+                port: 8080
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /etc/nginx/nginx.conf
+              name: frontend-nginx-config
+              subPath: nginx.conf
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - configMap:
+              defaultMode: 420
+              name: frontend-nginx-config
+            name: frontend-nginx-config
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - frontend
+          from:
+            kind: ImageStreamTag
+            name: frontend:latest
+        type: ImageChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: backend
+      name: backend
+    spec:
+      ports:
+      - name: 8080-tcp
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+      - name: 8778-tcp
+        port: 8778
+        protocol: TCP
+        targetPort: 8778
+      - name: 9779-tcp
+        port: 9779
+        protocol: TCP
+        targetPort: 9779
+      selector:
+        deploymentconfig: backend
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: database
+      name: database
+    spec:
+      ports:
+      - name: 3306-tcp
+        port: 3306
+        protocol: TCP
+        targetPort: 3306
+      selector:
+        deploymentconfig: database
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: frontend
+    spec:
+      ports:
+      - name: 8080-tcp
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+      selector:
+        deploymentconfig: frontend
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      annotations:
+      labels:
+        app: frontend
+      name: frontend
+    spec:
+      host: frontend-meetup.apps.ocp4.br77.ru
+      port:
+        targetPort: 8080-tcp
+      to:
+        kind: Service
+        name: frontend
+        weight: 100
+      wildcardPolicy: None

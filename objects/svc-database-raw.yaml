@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    openshift.io/generated-by: OpenShiftNewApp
+  creationTimestamp: "2021-03-15T06:29:18Z"
+  labels:
+    app: database
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: database
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/generated-by: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+      f:spec:
+        f:ports:
+          .: {}
+          k:{"port":3306,"protocol":"TCP"}:
+            .: {}
+            f:name: {}
+            f:port: {}
+            f:protocol: {}
+            f:targetPort: {}
+        f:selector:
+          .: {}
+          f:deploymentconfig: {}
+        f:sessionAffinity: {}
+        f:type: {}
+    manager: oc
+    operation: Update
+    time: "2021-03-15T06:29:18Z"
+  name: database
+  namespace: meetup
+  resourceVersion: "13354512"
+  selfLink: /api/v1/namespaces/meetup/services/database
+  uid: 59f2b159-1166-49f4-93f8-5af0359999e5
+spec:
+  clusterIP: 172.30.64.84
+  ports:
+  - name: 3306-tcp
+    port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    deploymentconfig: database
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

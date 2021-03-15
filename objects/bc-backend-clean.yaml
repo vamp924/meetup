@@ -1,0 +1,39 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  annotations:
+  labels:
+    app: backend
+  name: backend
+spec:
+  failedBuildsHistoryLimit: 5
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: backend:latest
+  postCommit: {}
+  resources: {}
+  runPolicy: Serial
+  source:
+    contextDir: /
+    git:
+      uri: https://github.com/maanur/fictional-garbanzo.git
+    type: Git
+  strategy:
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: s2i-java:latest-java11
+    type: Source
+  successfulBuildsHistoryLimit: 5
+  triggers:
+  - github:
+      secret: ndAWMm_PSCYpgYzHT8CK
+    type: GitHub
+  - generic:
+      secret: tIzkCPFBfa1XylGHpBR7
+    type: Generic
+  - type: ConfigChange
+  - imageChange:
+    type: ImageChange

@@ -1,0 +1,75 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  annotations:
+    openshift.io/generated-by: OpenShiftNewApp
+    openshift.io/image.dockerRepositoryCheck: "2021-03-15T06:29:20Z"
+  creationTimestamp: "2021-03-15T06:29:18Z"
+  generation: 2
+  labels:
+    app: database
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: database
+  managedFields:
+  - apiVersion: image.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/generated-by: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+      f:spec:
+        f:tags:
+          .: {}
+          k:{"name":"latest"}:
+            .: {}
+            f:annotations:
+              .: {}
+              f:openshift.io/imported-from: {}
+            f:from:
+              .: {}
+              f:kind: {}
+              f:name: {}
+            f:generation: {}
+            f:importPolicy: {}
+            f:name: {}
+            f:referencePolicy:
+              .: {}
+              f:type: {}
+    manager: oc
+    operation: Update
+    time: "2021-03-15T06:29:18Z"
+  name: database
+  namespace: meetup
+  resourceVersion: "13354533"
+  selfLink: /apis/image.openshift.io/v1/namespaces/meetup/imagestreams/database
+  uid: 03fc346f-3f36-41dc-a0d7-799e4de61ed3
+spec:
+  lookupPolicy:
+    local: false
+  tags:
+  - annotations:
+      openshift.io/imported-from: registry.redhat.io/rhel8/mysql-80
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/rhel8/mysql-80
+    generation: 2
+    importPolicy: {}
+    name: latest
+    referencePolicy:
+      type: Source
+status:
+  dockerImageRepository: image-registry.openshift-image-registry.svc:5000/meetup/database
+  publicDockerImageRepository: registry.apps.ocp4.br77.ru/meetup/database
+  tags:
+  - items:
+    - created: "2021-03-15T06:29:20Z"
+      dockerImageReference: registry.redhat.io/rhel8/mysql-80@sha256:c11af7b1b4f1f7555f93178554a5b98e5350799868aeae2721452b350fb54280
+      generation: 2
+      image: sha256:c11af7b1b4f1f7555f93178554a5b98e5350799868aeae2721452b350fb54280
+    tag: latest

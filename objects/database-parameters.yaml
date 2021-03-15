@@ -1,0 +1,29 @@
+parameters:
+  - description: Database name for backend database
+    displayName: Database Name
+    from: '[a-zA-Z]{10}'
+    generate: expression
+    required: true
+    name: DATABASE_NAME
+  - description: Database password for backend database
+    displayName: Database Password
+    from: '[a-zA-Z0-9]{16}'
+    generate: expression
+    required: true
+    name: DATABASE_PASSWORD
+  - description: Database user for backend database
+    displayName: Database User
+    from: '[a-zA-Z]{8}'
+    generate: expression
+    required: true
+    name: DATABASE_USER
+  - description: Database service name for deployment objects
+    displayName: Database service name
+    required: true
+    value: database
+    name: DATABASE_SVC_NAME
+  - description: Port for database service
+    displayName: Database port
+    required: true
+    value: "3306"
+    name: DATABASE_PORT

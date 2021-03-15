@@ -1,0 +1,624 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+  app: db-fr-ba
+  template: db-fr-ba
+message: We have deployed!
+metadata:
+  annotations:
+    description: Demo database-frontend-backend template
+    iconClass: icon-php
+    openshift.io/display-name: Database (ephemeral), Backend, Frontend
+    openshift.io/long-description: Demo template with database, frontend, backend
+    tags: database,frontend,backend
+  labels:
+  name: db-fr-ba
+objects:
+  - apiVersion: v1
+    stringData:
+      DATABASE: ${DATABASE_NAME}
+      PASSWORD: ${DATABASE_PASSWORD}
+      USER: ${DATABASE_USER}
+      HOST: ${DATABASE_SVC_NAME}
+      PORT: ${DATABASE_PORT}
+    kind: Secret
+    metadata:
+      labels:
+        app: ${DATABASE_SVC_NAME}
+      name: ${DATABASE_SVC_NAME}-db-auth
+    type: Opaque
+  - apiVersion: v1
+    data:
+      nginx.conf: |
+        env BACKEND_HOST;
+        env BACKEND_PORT;
+        env POD_NAMESPACE;
+
+        worker_processes auto;
+        error_log stderr;
+        pid /run/nginx.pid;
+
+        include /usr/share/nginx/modules/*.conf;
+
+        events {
+            worker_connections 1024;
+        }
+
+        http {
+            resolver 172.30.0.10;
+
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+
+            sendfile            on;
+            tcp_nopush          on;
+            tcp_nodelay         on;
+            keepalive_timeout   65;
+            types_hash_max_size 2048;
+
+            include             /etc/nginx/mime.types;
+            default_type        application/octet-stream;
+
+            include /etc/nginx/conf.d/*.conf;
+
+            perl_set $backend 'sub { return $ENV{"BACKEND_HOST"}; }';
+            perl_set $backend_port 'sub { return $ENV{"BACKEND_PORT"}; }';
+            perl_set $namespace 'sub { return $ENV{"POD_NAMESPACE"}; }';
+
+
+            server {
+                listen       8080 default_server;
+                listen       [::]:8080 default_server;
+                server_name  _;
+                root         /usr/share/nginx/html;
+
+                include /etc/nginx/default.d/*.conf;
+
+                location / {
+                    proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port;
+                }
+                
+                location /color {
+                    proxy_pass http://$backend.$namespace.svc.cluster.local:$backend_port/echo/green;
+                }
+
+                location /nginx-health {
+                    return 200 "healthy\n";
+                }
+
+                location /nginx-ready {
+                    return 200 "ready\n";
+                }
+
+            }
+
+        }
+    kind: ConfigMap
+    metadata:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}-nginx-config
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: ${BACKEND_SVC_NAME}
+      name: ${BACKEND_SVC_NAME}
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: ${DATABASE_SVC_NAME}
+      name: ${DATABASE_SVC_NAME}
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: registry.redhat.io/rhel8/mysql-80
+        generation: 2
+        importPolicy: {}
+        name: latest
+        referencePolicy:
+          type: Source
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}
+    spec:
+      lookupPolicy:
+        local: false
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: ${BACKEND_SVC_NAME}
+      name: s2i-java
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: fabric8/s2i-java:latest-java11
+        importPolicy: {}
+        name: latest-java11
+        referencePolicy:
+          type: Source
+  - apiVersion: image.openshift.io/v1
+    kind: ImageStream
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ubi8
+    spec:
+      lookupPolicy:
+        local: false
+      tags:
+      - annotations:
+        from:
+          kind: DockerImage
+          name: registry.access.redhat.com/ubi8:8.0
+        importPolicy: {}
+        name: "8.0"
+        referencePolicy:
+          type: Source
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: ${BACKEND_SVC_NAME}
+      name: ${BACKEND_SVC_NAME}
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: ${BACKEND_SVC_NAME}:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: /
+        git:
+          uri: https://github.com/maanur/fictional-garbanzo.git
+        type: Git
+      strategy:
+        sourceStrategy:
+          from:
+            kind: ImageStreamTag
+            name: s2i-java:latest-java11
+        type: Source
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - github:
+          secret: ${WEBHOOK_SECRET}
+        type: GitHub
+      - generic:
+          secret: ${WEBHOOK_SECRET}
+        type: Generic
+      - type: ConfigChange
+      - imageChange:
+        type: ImageChange
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: ${FRONTEND_SVC_NAME}:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        git:
+          uri: https://github.com/vamp924/frontend
+        type: Git
+      strategy:
+        dockerStrategy:
+          from:
+            kind: ImageStreamTag
+            name: ubi8:8.0
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+      - github:
+          secret: ${WEBHOOK_SECRET}
+        type: GitHub
+      - generic:
+          secret: ${WEBHOOK_SECRET}
+        type: Generic
+      - type: ConfigChange
+      - imageChange:
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: ${BACKEND_SVC_NAME}
+      name: ${BACKEND_SVC_NAME}
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: backend
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: ${BACKEND_SVC_NAME}
+        spec:
+          containers:
+          - env:
+            - name: JAVA_APP_JAR
+              value: /deployments/backend-0.1-all.jar
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: PASSWORD
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: USER
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: DATABASE_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: HOST
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: PORT
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            imagePullPolicy: Always
+            name: ${BACKEND_SVC_NAME}
+            ports:
+            - containerPort: ${{BACKEND_PORT}}
+              protocol: TCP
+            - containerPort: 8778
+              protocol: TCP
+            - containerPort: 9779
+              protocol: TCP
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - ${BACKEND_SVC_NAME}
+          from:
+            kind: ImageStreamTag
+            name: ${BACKEND_SVC_NAME}:latest
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: ${DATABASE_SVC_NAME}
+      name: ${DATABASE_SVC_NAME}
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: ${DATABASE_SVC_NAME}
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: ${DATABASE_SVC_NAME}
+        spec:
+          containers:
+          - env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: PASSWORD
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  key: USER
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE
+                  name: ${DATABASE_SVC_NAME}-db-auth
+            imagePullPolicy: Always
+            name: ${DATABASE_SVC_NAME}
+            ports:
+            - containerPort: ${{DATABASE_PORT}}
+              protocol: TCP
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - ${DATABASE_SVC_NAME}
+          from:
+            kind: ImageStreamTag
+            name: ${DATABASE_SVC_NAME}:latest
+        type: ImageChange
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        deploymentconfig: ${FRONTEND_SVC_NAME}
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          annotations:
+          labels:
+            deploymentconfig: ${FRONTEND_SVC_NAME}
+        spec:
+          containers:
+          - env:
+            - name: BACKEND_HOST
+              value: ${BACKEND_SVC_NAME}
+            - name: BACKEND_PORT
+              value: ${BACKEND_PORT}
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            imagePullPolicy: Always
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /nginx-health
+                port: 8080
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            name: ${FRONTEND_SVC_NAME}
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /nginx-ready
+                port: 8080
+                scheme: HTTP
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /etc/nginx/nginx.conf
+              name: ${FRONTEND_SVC_NAME}-nginx-config
+              subPath: nginx.conf
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - configMap:
+              defaultMode: 420
+              name: ${FRONTEND_SVC_NAME}-nginx-config
+            name: ${FRONTEND_SVC_NAME}-nginx-config
+      test: false
+      triggers:
+      - type: ConfigChange
+      - imageChangeParams:
+          automatic: true
+          containerNames:
+          - ${FRONTEND_SVC_NAME}
+          from:
+            kind: ImageStreamTag
+            name: ${FRONTEND_SVC_NAME}:latest
+        type: ImageChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: ${BACKEND_SVC_NAME}
+      name: ${BACKEND_SVC_NAME}
+    spec:
+      ports:
+      - name: ${BACKEND_PORT}-tcp
+        port: ${{BACKEND_PORT}}
+        protocol: TCP
+        targetPort: ${{BACKEND_PORT}}
+      - name: 8778-tcp
+        port: 8778
+        protocol: TCP
+        targetPort: 8778
+      - name: 9779-tcp
+        port: 9779
+        protocol: TCP
+        targetPort: 9779
+      selector:
+        deploymentconfig: ${BACKEND_SVC_NAME}
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: ${DATABASE_SVC_NAME}
+      name: ${DATABASE_SVC_NAME}
+    spec:
+      ports:
+      - name: ${DATABASE_PORT}-tcp
+        port: ${{DATABASE_PORT}}
+        protocol: TCP
+        targetPort: ${{DATABASE_PORT}}
+      selector:
+        deploymentconfig: ${DATABASE_SVC_NAME}
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}
+    spec:
+      ports:
+      - name: 8080-tcp
+        port: 8080
+        protocol: TCP
+        targetPort: 8080
+      selector:
+        deploymentconfig: ${FRONTEND_SVC_NAME}
+      sessionAffinity: None
+      type: ClusterIP
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      annotations:
+      labels:
+        app: ${FRONTEND_SVC_NAME}
+      name: ${FRONTEND_SVC_NAME}
+    spec:
+      port:
+        targetPort: 8080-tcp
+      to:
+        kind: Service
+        name: ${FRONTEND_SVC_NAME}
+        weight: 100
+      wildcardPolicy: None
+parameters:
+  - description: Database name for backend database
+    displayName: Database Name
+    from: '[a-zA-Z]{10}'
+    generate: expression
+    required: true
+    name: DATABASE_NAME
+  - description: Database password for backend database
+    displayName: Database Password
+    from: '[a-zA-Z0-9]{16}'
+    generate: expression
+    required: true
+    name: DATABASE_PASSWORD
+  - description: Database user for backend database
+    displayName: Database User
+    from: '[a-zA-Z]{8}'
+    generate: expression
+    required: true
+    name: DATABASE_USER
+  - description: Database service name for deployment objects
+    displayName: Database service name
+    required: true
+    value: database
+    name: DATABASE_SVC_NAME
+  - description: Port for database service
+    displayName: Database port
+    required: true
+    value: "3306"
+    name: DATABASE_PORT
+  - description: Frontend service name for deployment objects
+    displayName: Frontend service name
+    required: true
+    value: frontend
+    name: FRONTEND_SVC_NAME
+  - description: Web hook secrets
+    displayName: Webhook secrets
+    from: '[a-zA-Z0-9]{16}'
+    generate: expression
+    required: true
+    name: WEBHOOK_SECRET
+  - description: Backend service name for deployment objects
+    displayName: BAckend service name
+    required: true
+    value: backend
+    name: BACKEND_SVC_NAME
+  - description: Port for backend service
+    displayName: Backend port
+    required: true
+    value: "8080"
+    name: BACKEND_PORT

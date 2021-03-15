@@ -1,0 +1,97 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  annotations:
+    openshift.io/generated-by: OpenShiftNewApp
+  creationTimestamp: "2021-03-15T11:00:19Z"
+  labels:
+    app: backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/instance: backend
+  managedFields:
+  - apiVersion: build.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:openshift.io/generated-by: {}
+        f:labels:
+          .: {}
+          f:app: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+      f:spec:
+        f:output:
+          f:to:
+            .: {}
+            f:kind: {}
+            f:name: {}
+        f:runPolicy: {}
+        f:source:
+          f:contextDir: {}
+          f:git:
+            .: {}
+            f:uri: {}
+          f:type: {}
+        f:strategy:
+          f:sourceStrategy:
+            .: {}
+            f:from:
+              .: {}
+              f:kind: {}
+              f:name: {}
+          f:type: {}
+    manager: oc
+    operation: Update
+    time: "2021-03-15T11:00:19Z"
+  - apiVersion: build.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:triggers: {}
+      f:status:
+        f:lastVersion: {}
+    manager: openshift-apiserver
+    operation: Update
+    time: "2021-03-15T11:00:21Z"
+  name: backend
+  namespace: meetup
+  resourceVersion: "13435363"
+  selfLink: /apis/build.openshift.io/v1/namespaces/meetup/buildconfigs/backend
+  uid: 8b8f99b8-8e8d-4e2d-92eb-a0dd0013cfcf
+spec:
+  failedBuildsHistoryLimit: 5
+  nodeSelector: null
+  output:
+    to:
+      kind: ImageStreamTag
+      name: backend:latest
+  postCommit: {}
+  resources: {}
+  runPolicy: Serial
+  source:
+    contextDir: /
+    git:
+      uri: https://github.com/maanur/fictional-garbanzo.git
+    type: Git
+  strategy:
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        name: s2i-java:latest-java11
+    type: Source
+  successfulBuildsHistoryLimit: 5
+  triggers:
+  - github:
+      secret: ndAWMm_PSCYpgYzHT8CK
+    type: GitHub
+  - generic:
+      secret: tIzkCPFBfa1XylGHpBR7
+    type: Generic
+  - type: ConfigChange
+  - imageChange:
+      lastTriggeredImageID: fabric8/s2i-java@sha256:86838c136773a1001eb98fc1c4fe84c8fcb3f49b866f06be8ce847c360c31acb
+    type: ImageChange
+status:
+  lastVersion: 1

@@ -1,0 +1,17 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+labels:
+  app: db-fr-ba
+  template: db-fr-ba
+message: We have deployed!
+metadata:
+  annotations:
+    description: Demo database-frontend-backend template
+    iconClass: icon-php
+    openshift.io/display-name: Database (ephemeral), Backend, Frontend
+    openshift.io/long-description: Demo template with database, frontend, backend
+    tags: database,frontend,backend
+  labels:
+  name: db-fr-ba
+objects:
+

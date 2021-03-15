@@ -1,0 +1,64 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    openshift.io/host.generated: "true"
+  creationTimestamp: "2021-03-15T06:29:48Z"
+  labels:
+    app: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/instance: frontend
+  managedFields:
+  - apiVersion: route.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:app: {}
+          f:app.kubernetes.io/component: {}
+          f:app.kubernetes.io/instance: {}
+      f:spec:
+        f:port:
+          .: {}
+          f:targetPort: {}
+        f:to:
+          f:kind: {}
+          f:name: {}
+          f:weight: {}
+        f:wildcardPolicy: {}
+    manager: kubectl-expose
+    operation: Update
+    time: "2021-03-15T06:29:48Z"
+  - apiVersion: route.openshift.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:ingress: {}
+    manager: openshift-router
+    operation: Update
+    time: "2021-03-15T06:29:48Z"
+  name: frontend
+  namespace: meetup
+  resourceVersion: "13354732"
+  selfLink: /apis/route.openshift.io/v1/namespaces/meetup/routes/frontend
+  uid: dd090b8d-36a9-4306-b342-367b6821075b
+spec:
+  host: frontend-meetup.apps.ocp4.br77.ru
+  port:
+    targetPort: 8080-tcp
+  to:
+    kind: Service
+    name: frontend
+    weight: 100
+  wildcardPolicy: None
+status:
+  ingress:
+  - conditions:
+    - lastTransitionTime: "2021-03-15T06:29:48Z"
+      status: "True"
+      type: Admitted
+    host: frontend-meetup.apps.ocp4.br77.ru
+    routerCanonicalHostname: apps.ocp4.br77.ru
+    routerName: default
+    wildcardPolicy: None
