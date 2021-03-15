@@ -1,3 +1,8 @@
+0. Здороваемся, расставляем окна, запускаем ванлайнеры
+cd oneliners
+./version.sh
+./pod_monitor.sh
+
 1. Деплой из образа. mariadb
 cd database
 cat deploy.sh
