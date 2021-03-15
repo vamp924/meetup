@@ -71,7 +71,8 @@ oc process -f template-final.yaml | oc create -f -
 #пока идут билды, показываем интерфейс, темплейт в интерфейсе, его параметры
 
 8. Описываем rolling strategy, изменяем backend, коммит, пуш, start-build
-oc get dc backend -o yaml | less
+oc edit dc backend 
+#исправляем параметры rolling strategy на surge 25%, maxunavail 0%
 #source code manipulation
 oc start-build bc/backend
 # показываем, как заменяются поды, демонстрируем новизну версии 
